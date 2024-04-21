@@ -333,36 +333,44 @@ if __name__ == '__main__':
                  (17, 15), (17, 16), (18, 16), (18, 17), (8, 0), (8, 1), (8, 2), (8, 3), (9, 2), (9, 1), (14, 3),
                  (14, 4), (14, 5), (15, 4), (15, 2), (15, 3), (17, 3), (17, 4), (17, 6), (17, 7), (17, 5), (18, 4),
                  (18, 5), (18, 6), (14, 9), (14, 10), (14, 11), (13, 10), (12, 10), (12, 9), (12, 8), (11, 8), (11, 7)]
-
+    policy1 = []
+    policy2 = []
     grid = np.zeros((20, 20))
-    # obstacle = display_grid_pygame2(grid,(4, 2), (9, 18))
-    # print('Obstacles')
-    # print(obstacle)
+    total_time = []
+    path_distance = []
+    smoothness = []
+    for i in range(30):
+        grid = np.zeros((20, 20))
 
-    fpa1 = FPA(20, 20, 4, grid, (4, 4), (9, 18), obstacles)
-    start_time = time.time()
-    fpa1.q_learning()
-    print(f'Time for Q {time.time() - start_time}')
-    # print(np.array_str(fpa.q_table, max_line_width=200))
-    policy1 = fpa1.get_policy()
-    print(calculate_total_traveled_distance(policy1))
+        fpa1 = FPA(20, 20, 4, grid, (4, 4), (9, 18), obstacles)
+        start_time = time.time()
+        fpa1.q_learning()
+        total_time.append(time.time() - start_time)
+        policy1 = fpa1.get_policy()
+        path_distance.append(calculate_total_traveled_distance(policy1))
+        smoothness.append(calculate_path_smoothness(policy1))
+    print(f'Q-learning')
+    print(f'Average time {np.average(total_time)} \n Std Dev time {np.std(total_time)}')
+    print(f'Average distance {np.average(path_distance)} \n Std Dev Distance {np.std(path_distance)}')
+    print(f'Average smoothness {np.average(smoothness)} \n Std Dev {np.std(smoothness)}')
 
-    print(f'Path smoothness {calculate_path_smoothness(policy1)}')
-    # print(fpa.get_policy())
-    # display_grid_pygame2(fpa.grid,(4, 2), (9, 18), policy1)
-
-    grid = np.zeros((20, 20))
-    fpa2 = FPA(20, 20, 4, grid, (4, 4), (9, 18), obstacles)
-    start_time = time.time()
-    fpa2.fpa_algorithm()
-    fpa2.q_learning()
-    print(f'Time for IQFPA {time.time() - start_time}')
-    # print(np.array_str(fpa.q_table, max_line_width=200))
-    policy2 = fpa2.get_policy()
-    print(calculate_total_traveled_distance(policy2))
-
-
-    print(f'Path smoothness {calculate_path_smoothness(policy2)}')
+    total_time = []
+    path_distance = []
+    smoothness = []
+    for i in range(30):
+        grid = np.zeros((20, 20))
+        fpa2 = FPA(20, 20, 4, grid, (4, 4), (9, 18), obstacles)
+        start_time = time.time()
+        fpa2.fpa_algorithm()
+        fpa2.q_learning()
+        total_time.append(time.time() - start_time)
+        policy2 = fpa2.get_policy()
+        path_distance.append(calculate_total_traveled_distance(policy2))
+        smoothness.append(calculate_path_smoothness(policy2))
+    print(f'IQFPA')
+    print(f'Average time {np.average(total_time)} \n Std Dev time {np.std(total_time)}')
+    print(f'Average distance {np.average(path_distance)} \n Std Dev Distance {np.std(path_distance)}')
+    print(f'Average smoothness {np.average(smoothness)} \n Std Dev {np.std(smoothness)}')
 
     # display_grid_pygame2(fpa.grid,(4, 2), (9, 18), policy2)
     display_grids_pygame(grid, (4, 4), (9, 18), policy1, policy2, obstacles=obstacles)
