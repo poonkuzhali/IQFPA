@@ -5,17 +5,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-symbols = {
-    0: '↑',
-    1: '→',
-    2: '↓',
-    3: '←',
-    4: 'S',
-    5: 'X',
-    6: 'T',
-    -1: '.'
-}
-
 
 class Grid:
     def __init__(self, row, column, actions, grid, start, goal, obstacles, max_iter):
@@ -64,17 +53,21 @@ class Grid:
         gamma = 0.8
         reward = self.rewards[new_r, new_col]
         current_q = self.q_table[row, column, a]
-        q = current_q + (lr * reward + (gamma * np.max(self.q_table[new_r, new_col])) - current_q)
+        q = current_q + lr * (reward + (gamma * np.max(self.q_table[new_r, new_col])) - current_q)
         return q
 
     def q_learning(self):
         epsilon = 0.8
+        total_reward = 0
+        steps = 0
+        reached_goal = False
         for i in range(self.max_iter):
             row, column = self.start[0], self.start[1]
             while (row, column) != self.goal:
                 a = self.get_action(row, column, epsilon)
                 new_r, new_col = self.get_next_state(row, column, a)
                 reward = self.rewards[new_r, new_col]
+                total_reward += reward
                 lr = 0.2
                 gamma = 0.8
                 current_q = self.q_table[row, column, a]
@@ -83,6 +76,13 @@ class Grid:
 
                 row = new_r
                 column = new_col
+                steps += 1
+
+                if (row, column) == self.goal:
+                    reached_goal = True
+                    break
+
+        return round(total_reward, 2), steps, reached_goal
 
     def plot_grid_world(self, name, obstacle_idx, iteration, path=None):
         plt.figure(figsize=(8, 8))
@@ -123,7 +123,7 @@ class Grid:
         plt.xticks(custom_ticks)
         plt.yticks(custom_ticks)
         plt.grid(True)
-        plt.savefig(f'{name}/{iteration}.png')
+        plt.savefig(f'{name}_{iteration}.png')
         plt.close()
 
     def get_policy(self):
@@ -261,20 +261,30 @@ def calculate_percentage_improvement(old, new):
     return round(((old - new) / old) * 100, 2) if old != 0 else 0
 
 
-def initialize_and_process(obstacles_list, population_size):
-    q_learning_max_iter = 200
-    average_time_taken_q = []
-    average_traveled_distance_q = []
-    average_path_smoothness_q = []
-    std_time_taken_q = []
-    std_traveled_distance_q = []
-    std_path_smoothness_q = []
-    average_time_taken = []
-    average_traveled_distance = []
-    average_path_smoothness = []
-    std_time_taken = []
-    std_traveled_distance = []
-    std_path_smoothness = []
+def initialize_and_process(obstacles_list, population_size, n_iterations):
+    q_learning_max_iter = 150
+    # average_time_taken_q = []
+    # average_traveled_distance_q = []
+    # average_path_smoothness_q = []
+    # std_time_taken_q = []
+    # std_traveled_distance_q = []
+    # std_path_smoothness_q = []
+    # average_time_taken = []
+    # average_traveled_distance = []
+    # average_path_smoothness = []
+    # std_time_taken = []
+    # std_traveled_distance = []
+    # std_path_smoothness = []
+
+    steps = []
+    rewards = []
+    reached = []
+    train_time = []
+    steps_1 = []
+    rewards_1 = []
+    reached_1 = []
+    train_time_1 = []
+
 
     start = (2, 16)
     goal = (19, 11)
@@ -285,32 +295,37 @@ def initialize_and_process(obstacles_list, population_size):
         path_distance_q = []
         smoothness_q = []
 
-        for i in range(30):
+        for i in range(n_iterations):
             print(f'Q-learning iteration {i}')
             grid = np.zeros((20, 20))
             q_learning = FPA(20, 20, 4, grid, start, goal, obstacles, population_size, q_learning_max_iter)
 
             # Calculating time - Q learning
             start_time = time.time()
-            q_learning.q_learning()
-            total_time_q.append(time.time() - start_time)
+            total_reward, step, reached_goal = q_learning.q_learning()
+            t = round(time.time() - start_time, 2)
+            train_time.append(t)
+            steps.append(step)
+            rewards.append(total_reward)
+            reached.append(reached_goal)
+            total_time_q.append(t)
 
             policy = q_learning.get_policy()
             path_distance_q.append(calculate_total_traveled_distance(policy))
             smoothness_q.append(calculate_path_smoothness(policy))
             q_learning.plot_grid_world(f'Q-learning_{idx + 1}', idx, i, policy)
 
-        average_time_taken_q.append(round(np.average(total_time_q), 2))
-        average_path_smoothness_q.append(round(np.average(smoothness_q), 2))
-        average_traveled_distance_q.append(round(np.average(path_distance_q), 2))
-        std_time_taken_q.append(round(np.std(total_time_q), 2))
-        std_path_smoothness_q.append(round(np.std(smoothness_q), 2))
-        std_traveled_distance_q.append(round(np.std(path_distance_q), 2))
+        # average_time_taken_q.append(round(np.average(total_time_q), 2))
+        # average_path_smoothness_q.append(round(np.average(smoothness_q), 2))
+        # average_traveled_distance_q.append(round(np.average(path_distance_q), 2))
+        # std_time_taken_q.append(round(np.std(total_time_q), 2))
+        # std_path_smoothness_q.append(round(np.std(smoothness_q), 2))
+        # std_traveled_distance_q.append(round(np.std(path_distance_q), 2))
 
         total_time = []
         path_distance = []
         smoothness = []
-        for i in range(30):
+        for i in range(n_iterations):
             print(f'IQFPA iteration {i}')
             grid = np.zeros((20, 20))
             fpa = FPA(20, 20, 4, grid, start, goal, obstacles, population_size, q_learning_max_iter)
@@ -318,90 +333,80 @@ def initialize_and_process(obstacles_list, population_size):
             # Calculating time - FPA + Q learning
             start_time = time.time()
             fpa.fpa_algorithm()
-            fpa.q_learning()
-            total_time.append(time.time() - start_time)
+            total_reward, step, reached_goal = fpa.q_learning()
+            t = round(time.time() - start_time, 2)
+            train_time_1.append(t)
+            steps_1.append(step)
+            rewards_1.append(total_reward)
+            reached_1.append(reached_goal)
+            total_time.append(t)
 
             policy = fpa.get_policy()
             path_distance.append(calculate_total_traveled_distance(policy))
             smoothness.append(calculate_path_smoothness(policy))
             fpa.plot_grid_world(f'IQFPA_{idx + 1}', idx, i, policy)
 
-        average_time_taken.append(round(np.average(total_time), 2))
-        average_path_smoothness.append(round(np.average(smoothness), 2))
-        average_traveled_distance.append(round(np.average(path_distance), 2))
-        std_time_taken.append(round(np.std(total_time), 2))
-        std_path_smoothness.append(round(np.std(smoothness), 2))
-        std_traveled_distance.append(round(np.std(path_distance), 2))
+        # average_time_taken.append(round(np.average(total_time), 2))
+        # average_path_smoothness.append(round(np.average(smoothness), 2))
+        # average_traveled_distance.append(round(np.average(path_distance), 2))
+        # std_time_taken.append(round(np.std(total_time), 2))
+        # std_path_smoothness.append(round(np.std(smoothness), 2))
+        # std_traveled_distance.append(round(np.std(path_distance), 2))
         print('--------------------------------------------------------------------')
 
-    average_data = {
-        'Test Case': ['Case 1', 'Case 2', 'Case 3', 'Case 4'],
-        'Q-Learning_Time': average_time_taken_q,
-        'IQFPA_Time': average_time_taken,
-        '% of Improvement-Time': list(
-            map(calculate_percentage_improvement, average_time_taken_q, average_time_taken)),
-        'Q-Learning_distance': average_traveled_distance_q,
-        'IQFPA_distance': average_traveled_distance,
-        '% of Improvement-Distance': list(
-            map(calculate_percentage_improvement, average_traveled_distance_q, average_traveled_distance)),
-        'Q-learning_smoothness': average_path_smoothness_q,
-        'IQFPA_smoothness': average_path_smoothness,
-        '% of Improvement-Smoothness': list(
-            map(calculate_percentage_improvement, average_path_smoothness_q, average_path_smoothness))
+    # average_data = {
+    #     'Test Case': ['Case 1'],
+    #     'Q-Learning_Time': average_time_taken_q,
+    #     'IQFPA_Time': average_time_taken,
+    #     '% of Improvement-Time': list(
+    #         map(calculate_percentage_improvement, average_time_taken_q, average_time_taken)),
+    #     'Q-Learning_distance': average_traveled_distance_q,
+    #     'IQFPA_distance': average_traveled_distance,
+    #     '% of Improvement-Distance': list(
+    #         map(calculate_percentage_improvement, average_traveled_distance_q, average_traveled_distance)),
+    #     'Q-learning_smoothness': average_path_smoothness_q,
+    #     'IQFPA_smoothness': average_path_smoothness,
+    #     '% of Improvement-Smoothness': list(
+    #         map(calculate_percentage_improvement, average_path_smoothness_q, average_path_smoothness))
+    # }
+
+    # std_data = {
+    #     'Test Case': ['Case 1'],
+    #     'Q-Learning_Time': std_time_taken_q,
+    #     'IQFPA_Time': std_time_taken,
+    #     '% of Improvement-Time': list(map(calculate_percentage_improvement, std_time_taken_q, std_time_taken)),
+    #     'Q-Learning_distance': std_traveled_distance_q,
+    #     'IQFPA-distance': std_traveled_distance,
+    #     '% of Improvement-Distance': list(
+    #         map(calculate_percentage_improvement, std_traveled_distance_q, std_traveled_distance)),
+    #     'Q-Learning_Smoothness': std_path_smoothness_q,
+    #     'IQFPA-smoothness': std_path_smoothness,
+    #     '% of Improvement-Smoothness': list(
+    #         map(calculate_percentage_improvement, std_path_smoothness_q, std_path_smoothness))
+    # }
+
+    data = {
+        "Steps": steps,
+        "Rewards": rewards,
+        "Reached Goal": reached,
+        "Time to train": train_time,
+        "Steps_IQFPA": steps_1,
+        "Rewards_IQFPA": rewards_1,
+        "Reached Goal_IQFPA": reached_1,
+        "Time to train_IQFPA": train_time_1,
     }
 
-    std_data = {
-        'Test Case': ['Case 1', 'Case 2', 'Case 3', 'Case 4'],
-        'Q-Learning_Time': std_time_taken_q,
-        'IQFPA_Time': std_time_taken,
-        '% of Improvement-Time': list(map(calculate_percentage_improvement, std_time_taken_q, std_time_taken)),
-        'Q-Learning_distance': std_traveled_distance_q,
-        'IQFPA-distance': std_traveled_distance,
-        '% of Improvement-Distance': list(
-            map(calculate_percentage_improvement, std_traveled_distance_q, std_traveled_distance)),
-        'Q-Learning_Smoothness': std_path_smoothness_q,
-        'IQFPA-smoothness': std_path_smoothness,
-        '% of Improvement-Smoothness': list(
-            map(calculate_percentage_improvement, std_path_smoothness_q, std_path_smoothness))
-    }
-
-    df1 = pd.DataFrame(average_data)
-    df1.to_csv('results_average.csv', index=False)
-
-    df2 = pd.DataFrame(std_data)
-    df2.to_csv('results_std.csv', index=False)
+    df = pd.DataFrame(data)
+    df.to_csv('results.csv', index=False)
 
 
 if __name__ == '__main__':
-    obstacles_8 = [(2, 6), (3, 5), (3, 6), (3, 7), (3, 8), (2, 7), (1, 6), (4, 5), (4, 6), (4, 7), (5, 6), (5, 7),
-                   (6, 7), (8, 11), (8, 13), (8, 12), (7, 12), (7, 17), (7, 18), (6, 18),
-                   (6, 17), (7, 16), (5, 18), (17, 14), (18, 14), (16, 15), (15, 15),
-                   (17, 15), (17, 16), (18, 16), (18, 17), (8, 0), (8, 1), (8, 2), (8, 3), (9, 2), (9, 1), (14, 3),
-                   (14, 4), (14, 5), (15, 4), (15, 2), (15, 3), (17, 3), (17, 4), (17, 6), (17, 7), (17, 5), (18, 4),
-                   (18, 5), (18, 6), (14, 9), (14, 10), (14, 11), (13, 10), (12, 10), (12, 9), (12, 8), (11, 8),
-                   (11, 7)]
-    # obstacles_12 = [(2, 6), (3, 5), (3, 6), (3, 7), (3, 8), (2, 7), (1, 6), (4, 5), (4, 6), (4, 7), (5, 6), (5, 7),
-    #                 (6, 7),
-    #                 (8, 11), (8, 13), (8, 12), (7,12), (10, 11), (10, 12), (7, 17), (7, 18), (6, 18),
-    #                 (6, 17), (7, 16), (5, 18), (17, 14), (18, 14), (16, 15), (15, 15),
-    #                 (17, 15), (17, 16), (18, 16), (18, 17), (8, 0), (8, 1), (8, 2), (8, 3), (9, 2), (9, 1), (14, 3),
-    #                 (14, 4), (14, 5), (15, 4), (15, 2), (15, 3), (17, 3), (17, 4), (17, 6), (17, 7), (17, 5), (18, 4),
-    #                 (18, 5), (18, 6), (14, 9), (14, 10), (14, 11), (13, 10), (12, 10), (12, 9), (12, 8), (11, 8),
-    #                 (11, 7),
-    #                 (8, 6), (8, 7), (9, 6), (9, 7), (2,14), (3,14), (2,13), (10, 16), (11, 16)]
-    obstacles_blocks = [(6, 6), (6, 9), (6, 12), (6, 15), (6, 18), (10, 4), (10, 7), (10, 10), (10, 13), (10, 16),
-                          (15, 2), (15, 5), (15, 8), (15, 11), (15, 14)]
-
-    obstacles_lines = [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7), (8, 8), (9, 9), (10, 10),
-                       (11, 11),
-                       (12, 12), (14, 4), (15, 5), (16, 6), (17, 7), (18, 8), (19, 9), (4, 14), (5, 15), (6, 16),
-                       (7, 17), (8, 18), (9, 19)]
-
-    obstacles_lines2 = [(0,14), (1, 14), (2, 14), (3, 14), (7, 6), (7,7), (7, 8), (7, 9), (7, 10), (7, 11), (7, 12),
-                        (7, 10), (8, 10), (9, 10), (11, 10), (12, 10), (13, 10), (14, 10), (10, 0), (10, 1), (10, 2),
-                        (10, 3), (10, 4), (10, 5), (10, 6), (12, 14), (12, 15), (12, 16), (12, 17), (12, 18), (12, 19),
-                        (14, 4), (14, 5), (14, 6), (15, 4), (16, 4), (17, 4), (18, 4), (19, 4)]
-
-    obstacle_list = [obstacles_8, obstacles_blocks, obstacles_lines, obstacles_lines2]
-    n_flowers = int(input('Enter population size for FPA: '))
-    initialize_and_process(obstacle_list, n_flowers)
+    # obstacles = [(0, 6), (1, 6), (2, 3), (2, 6), (3, 3), (3, 6), (3, 7), (3, 8), (3, 9), (3, 10), (3, 11), (4, 3), (4, 11), (5, 3), (5, 11), (6, 3), (6, 11), (7, 3), (7, 11), (8, 3), (8, 11), (9, 3), (9, 11), (9, 12), (9, 13), (10, 3), (10, 13), (11, 3), (11, 13), (12, 3), (12, 4), (12, 5), (12, 6), (12, 7), (12, 8), (12, 9), (12, 13), (13, 9), (13, 13), (14, 9), (14, 13), (15, 9), (15, 13), (16, 9), (16, 13), (17, 9), (17, 13), (18, 9), (19, 9)]
+    # obstacles = [(0, 1), (1, 2), (2, 3), (2, 10), (3, 3), (3, 10), (4, 3), (5, 2), (6, 2), (7, 2), (7, 7), (7, 8), (8, 2), (8, 7), (9, 4), (9, 7), (10, 4), (10, 6), (11, 4), (12, 4), (12, 12), (12, 13), (12, 14), (12, 15), (13, 4), (13, 13), (14, 13), (15, 13), (16, 5), (16, 13), (17, 5), (18, 5), (19, 5)]
+    # obstacles = [(4, 7), (4, 8), (4, 9), (4, 10), (4, 11), (5, 7), (5, 11), (6, 7), (6, 11), (7, 6), (7, 7), (7, 8), (7, 9), (7, 10), (7, 11), (7, 12), (8, 6), (8, 12), (9, 6), (9, 12), (10, 6), (10, 12), (11, 6), (11, 12), (12, 6), (12, 12), (13, 6), (13, 12), (14, 6), (14, 12), (15, 6), (15, 7), (15, 8), (15, 9), (15, 10), (15, 11), (15, 12)]
+    # obstacles = []
+    obstacles = [(0, 8), (1, 8), (2, 8), (3, 8), (4, 8), (4, 10), (5, 8), (5, 10), (6, 8), (6, 10), (7, 10), (8, 10), (9, 8), (9, 10), (10, 8), (10, 10), (11, 8), (11, 10), (12, 8), (13, 8), (14, 8), (15, 8), (16, 8), (17, 8), (18, 8), (19, 8)]
+    obstacle_list = [obstacles]
+    n_flowers = 50 # Paper suggests using size 10-50. 50 provides best results.
+    n_iterations = int(input("Enter number of times to run each test case: "))
+    initialize_and_process(obstacle_list, n_flowers, n_iterations)
