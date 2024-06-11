@@ -62,16 +62,19 @@ class Grid:
         steps = 0
         reached_goal = False
         max_steps = 1000
+        lr = 0.2
+        gamma = 0.8
         for i in range(self.max_iter):
             row, column = self.start[0], self.start[1]
             steps = 0
+            reached_goal = False
+
             while (row, column) != self.goal and steps < max_steps:
                 a = self.get_action(row, column, epsilon)
                 new_r, new_col = self.get_next_state(row, column, a)
                 reward = self.rewards[new_r, new_col]
                 total_reward += reward
-                lr = 0.2
-                gamma = 0.8
+
                 current_q = self.q_table[row, column, a]
                 q = current_q + lr * (reward + (gamma * np.max(self.q_table[new_r, new_col])) - current_q)
                 self.q_table[row, column, a] = q
